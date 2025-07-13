@@ -5,6 +5,7 @@ import { BullModule } from '@nestjs/bull';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PatientsModule } from './patients/patients.module';
+import { AppointmentsModule } from './appointments/appointments.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -31,6 +32,7 @@ import configuration from './config/configuration';
       inject: [ConfigService],
     }),
     PatientsModule,
+    AppointmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
