@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bull';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { PatientsModule } from './patients/patients.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -29,6 +30,7 @@ import configuration from './config/configuration';
       }),
       inject: [ConfigService],
     }),
+    PatientsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
