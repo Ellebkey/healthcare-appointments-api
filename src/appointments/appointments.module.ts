@@ -21,5 +21,6 @@ import { Patient, PatientSchema } from '../patients/schemas/patient.schema';
   ],
   controllers: [AppointmentsController],
   providers: [AppointmentsService, AppointmentsProcessor],
+  exports: [BullModule],
 })
 export class AppointmentsModule {}

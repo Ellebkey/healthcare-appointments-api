@@ -25,63 +25,9 @@ export class AppointmentsController {
   @Post()
   async processCSV(@Body() fileUploadDto: FileUploadDto): Promise<{ message: string; jobId: string }> {
     const job = await this.appointmentsQueue.add('process-csv', { filepath: fileUploadDto.filepath });
-    return { 
+    return {
       message: 'CSV processing queued successfully',
       jobId: job.id.toString()
-    };
-  }
-
-  @Get('queue/status')
-  async getQueueStatus() {
-    const [waiting, active, completed, failed] = await Promise.all([
-      this.appointmentsQueue.getWaitingCount(),
-      this.appointmentsQueue.getActiveCount(),
-      this.appointmentsQueue.getCompletedCount(),
-      this.appointmentsQueue.getFailedCount(),
-    ]);
-
-    const jobs = await this.appointmentsQueue.getJobs(['completed', 'failed', 'active', 'waiting'], 0, 10);
-    
-    return {
-      counts: {
-        waiting,
-        active,
-        completed,
-        failed,
-        total: waiting + active + completed + failed,
-      },
-      recentJobs: jobs.map(job => ({
-        id: job.id,
-        status: job.finishedOn ? 'completed' : job.failedReason ? 'failed' : job.processedOn ? 'active' : 'waiting',
-        data: job.data,
-        progress: job.progress(),
-        createdAt: new Date(job.timestamp),
-        processedAt: job.processedOn ? new Date(job.processedOn) : null,
-        completedAt: job.finishedOn ? new Date(job.finishedOn) : null,
-        failedReason: job.failedReason || null,
-        result: job.returnvalue || null,
-      })),
-    };
-  }
-
-  @Get('queue/job/:id')
-  async getJobStatus(@Param('id') id: string) {
-    const job = await this.appointmentsQueue.getJob(id);
-    
-    if (!job) {
-      return { error: 'Job not found' };
-    }
-
-    return {
-      id: job.id,
-      status: job.finishedOn ? 'completed' : job.failedReason ? 'failed' : job.processedOn ? 'active' : 'waiting',
-      data: job.data,
-      progress: job.progress(),
-      createdAt: new Date(job.timestamp),
-      processedAt: job.processedOn ? new Date(job.processedOn) : null,
-      completedAt: job.finishedOn ? new Date(job.finishedOn) : null,
-      failedReason: job.failedReason || null,
-      result: job.returnvalue || null,
     };
   }
 }
