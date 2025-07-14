@@ -1,0 +1,99 @@
+import { Process, Processor } from '@nestjs/bull';
+import { Job } from 'bull';
+import { Injectable, Logger } from '@nestjs/common';
+import * as fs from 'fs';
+import * as csvParser from 'csv-parser';
+import { AppointmentsService } from './appointments.service';
+import { CreateAppointmentDto } from './dto/create-appointment.dto';
+
+interface CSVRow {
+  patient_id: string;
+  doctor: string;
+  appointment_date: string;
+  reason: string;
+}
+
+@Processor('appointments')
+@Injectable()
+export class AppointmentsProcessor {
+  private readonly logger = new Logger(AppointmentsProcessor.name);
+
+  constructor(private readonly appointmentsService: AppointmentsService) {}
+
+  @Process('process-csv')
+  async handleCSVProcessing(job: Job<{ filepath: string }>) {
+    const { filepath } = job.data;
+    this.logger.log(`Processing CSV file: ${filepath}`);
+
+    try {
+      const appointments = await this.parseCSVFile(filepath);
+      
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      for (const appointment of appointments) {
+        try {
+          await this.appointmentsService.create(appointment);
+          successCount++;
+        } catch (error) {
+          errorCount++;
+          errors.push(`Failed to create appointment: ${error.message}`);
+          this.logger.error(`Failed to create appointment: ${error.message}`);
+        }
+      }
+
+      this.logger.log(`CSV processing completed. Success: ${successCount}, Errors: ${errorCount}`);
+      
+      return {
+        success: true,
+        processed: successCount,
+        failed: errorCount,
+        errors: errors.slice(0, 10), // Return first 10 errors
+      };
+    } catch (error) {
+      this.logger.error(`Failed to process CSV file: ${error.message}`);
+      throw new Error(`Failed to process CSV file: ${error.message}`);
+    }
+  }
+
+  private parseCSVFile(filepath: string): Promise<CreateAppointmentDto[]> {
+    return new Promise((resolve, reject) => {
+      const appointments: CreateAppointmentDto[] = [];
+      
+      if (!fs.existsSync(filepath)) {
+        reject(new Error(`File not found: ${filepath}`));
+        return;
+      }
+
+      fs.createReadStream(filepath)
+        .pipe(csvParser())
+        .on('data', (row: CSVRow) => {
+          try {
+            const appointment: CreateAppointmentDto = {
+              patient_id: parseInt(row.patient_id, 10),
+              doctor: row.doctor,
+              appointment_date: row.appointment_date,
+              reason: row.reason,
+            };
+
+            // Basic validation
+            if (isNaN(appointment.patient_id)) {
+              throw new Error(`Invalid patient_id: ${row.patient_id}`);
+            }
+
+            appointments.push(appointment);
+          } catch (error) {
+            this.logger.error(`Invalid row in CSV: ${error.message}`);
+          }
+        })
+        .on('end', () => {
+          this.logger.log(`Parsed ${appointments.length} appointments from CSV`);
+          resolve(appointments);
+        })
+        .on('error', (error) => {
+          reject(error);
+        });
+    });
+  }
+}

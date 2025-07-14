@@ -1,8 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { InjectQueue } from '@nestjs/bull';
 import { Model } from 'mongoose';
+import { Queue } from 'bull';
 import { Appointment, AppointmentDocument } from './schemas/appointment.schema';
 import { Counter, CounterDocument } from '../patients/schemas/counter.schema';
+import { Patient, PatientDocument } from '../patients/schemas/patient.schema';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { QueryAppointmentDto } from './dto/query-appointment.dto';
 
@@ -12,36 +15,118 @@ export class AppointmentsService {
     @InjectModel(Appointment.name)
     private appointmentModel: Model<AppointmentDocument>,
     @InjectModel(Counter.name) private counterModel: Model<CounterDocument>,
+    @InjectModel(Patient.name) private patientModel: Model<PatientDocument>,
+    @InjectQueue('appointments') private appointmentsQueue: Queue,
   ) {}
 
-  async findAll(query: QueryAppointmentDto): Promise<Appointment[]> {
-    const filter: any = {};
+  async findAll(query: QueryAppointmentDto): Promise<any[]> {
+    const pipeline: any[] = [];
 
+    const matchStage: any = {};
     if (query.patient_id) {
-      filter.patient_id = query.patient_id;
+      matchStage.patient_id = query.patient_id;
     }
-
     if (query.doctor) {
-      filter.doctor = query.doctor;
+      matchStage.doctor = query.doctor;
+    }
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
     }
 
-    return this.appointmentModel
-      .find(filter)
-      .select('id patient_id doctor appointment_date reason')
-      .exec();
+    pipeline.push({
+      $lookup: {
+        from: 'patients',
+        localField: 'patient_id',
+        foreignField: 'id',
+        as: 'patient_data',
+      },
+    });
+
+    pipeline.push({
+      $unwind: {
+        path: '$patient_data',
+        preserveNullAndEmptyArrays: true,
+      },
+    });
+
+    pipeline.push({
+      $project: {
+        _id: 0,
+        id: 1,
+        doctor: 1,
+        appointment_date: 1,
+        reason: 1,
+        patient: {
+          $cond: {
+            if: { $eq: ['$patient_data', null] },
+            then: null,
+            else: {
+              id: '$patient_data.id',
+              name: '$patient_data.name',
+              age: '$patient_data.age',
+              gender: '$patient_data.gender',
+              contact: '$patient_data.contact',
+            },
+          },
+        },
+      },
+    });
+
+    return this.appointmentModel.aggregate(pipeline).exec();
   }
 
-  async findOne(id: number): Promise<Appointment> {
-    const appointment = await this.appointmentModel
-      .findOne({ id })
-      .select('id patient_id doctor appointment_date reason')
-      .exec();
+  async findOne(id: number): Promise<any> {
+    const pipeline = [
+      { $match: { id } },
 
-    if (!appointment) {
+      {
+        $lookup: {
+          from: 'patients',
+          localField: 'patient_id',
+          foreignField: 'id',
+          as: 'patient_data',
+        },
+      },
+
+      {
+        $unwind: {
+          path: '$patient_data',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $project: {
+          _id: 0,
+          id: 1,
+          patient_id: 1,
+          doctor: 1,
+          appointment_date: 1,
+          reason: 1,
+          patient: {
+            $cond: {
+              if: { $eq: ['$patient_data', null] },
+              then: null,
+              else: {
+                id: '$patient_data.id',
+                name: '$patient_data.name',
+                age: '$patient_data.age',
+                gender: '$patient_data.gender',
+                contact: '$patient_data.contact',
+              },
+            },
+          },
+        },
+      },
+    ];
+
+    const results = await this.appointmentModel.aggregate(pipeline).exec();
+
+    if (!results || results.length === 0) {
       throw new NotFoundException(`Appointment with ID ${id} not found`);
     }
 
-    return appointment;
+    return results[0];
   }
 
   async create(
@@ -59,5 +144,9 @@ export class AppointmentsService {
     });
 
     return appointment.save();
+  }
+
+  async queueCSVProcessing(filepath: string): Promise<void> {
+    await this.appointmentsQueue.add('process-csv', { filepath });
   }
 }
