@@ -28,7 +28,11 @@ export class PatientsService {
   }
 
   async findAll(): Promise<Patient[]> {
-    return this.patientModel.find().select('id name age gender contact').limit(50).exec();
+    return this.patientModel
+      .find()
+      .select('id name age gender contact')
+      .limit(50)
+      .exec();
   }
 
   async findOne(id: number): Promise<Patient> {

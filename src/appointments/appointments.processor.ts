@@ -51,8 +51,10 @@ export class AppointmentsProcessor {
           }
         } catch (error) {
           errorCount++;
-          errors.push(`Row ${i + 1}: ${error.message}`);
-          this.logger.error(`❌ Failed at row ${i + 1}: ${error.message}`);
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
+          errors.push(`Row ${i + 1}: ${errorMessage}`);
+          this.logger.error(`❌ Failed at row ${i + 1}: ${errorMessage}`);
         }
       }
 
@@ -70,8 +72,10 @@ export class AppointmentsProcessor {
         errors: errors.slice(0, 10), // Return first 10 errors
       };
     } catch (error) {
-      this.logger.error(`💥 Failed to process CSV file: ${error.message}`);
-      throw new Error(`Failed to process CSV file: ${error.message}`);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`💥 Failed to process CSV file: ${errorMessage}`);
+      throw new Error(`Failed to process CSV file: ${errorMessage}`);
     }
   }
 
@@ -102,7 +106,9 @@ export class AppointmentsProcessor {
 
             appointments.push(appointment);
           } catch (error) {
-            this.logger.error(`Invalid row in CSV: ${error.message}`);
+            const errorMessage =
+              error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`Invalid row in CSV: ${errorMessage}`);
           }
         })
         .on('end', () => {

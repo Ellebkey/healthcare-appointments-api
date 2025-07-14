@@ -23,11 +23,15 @@ export class AppointmentsController {
   }
 
   @Post()
-  async processCSV(@Body() fileUploadDto: FileUploadDto): Promise<{ message: string; jobId: string }> {
-    const job = await this.appointmentsQueue.add('process-csv', { filepath: fileUploadDto.filepath });
+  async processCSV(
+    @Body() fileUploadDto: FileUploadDto,
+  ): Promise<{ message: string; jobId: string }> {
+    const job = await this.appointmentsQueue.add('process-csv', {
+      filepath: fileUploadDto.filepath,
+    });
     return {
       message: 'CSV processing queued successfully',
-      jobId: job.id.toString()
+      jobId: job.id.toString(),
     };
   }
 }

@@ -22,7 +22,7 @@ export class AppointmentsService {
   async findAll(query: QueryAppointmentDto): Promise<any[]> {
     const pipeline: any[] = [];
 
-    const matchStage: any = {};
+    const matchStage: Record<string, any> = {};
     if (query.patient_id) {
       matchStage.patient_id = query.patient_id;
     }
