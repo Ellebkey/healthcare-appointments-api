@@ -23,36 +23,48 @@ export class AppointmentsProcessor {
   @Process('process-csv')
   async handleCSVProcessing(job: Job<{ filepath: string }>) {
     const { filepath } = job.data;
-    this.logger.log(`Processing CSV file: ${filepath}`);
+    this.logger.log(`🚀 Starting CSV processing - Job ID: ${job.id}`);
+    this.logger.log(`📁 File path: ${filepath}`);
 
     try {
       const appointments = await this.parseCSVFile(filepath);
+      this.logger.log(`📊 Total appointments to process: ${appointments.length}`);
       
       let successCount = 0;
       let errorCount = 0;
       const errors: string[] = [];
 
-      for (const appointment of appointments) {
+      // Process with progress updates
+      for (let i = 0; i < appointments.length; i++) {
         try {
-          await this.appointmentsService.create(appointment);
+          await this.appointmentsService.create(appointments[i]);
           successCount++;
+          
+          // Log progress every 10 appointments
+          if ((i + 1) % 10 === 0) {
+            await job.progress((i + 1) / appointments.length * 100);
+            this.logger.log(`📈 Progress: ${i + 1}/${appointments.length} (${Math.round((i + 1) / appointments.length * 100)}%)`);
+          }
         } catch (error) {
           errorCount++;
-          errors.push(`Failed to create appointment: ${error.message}`);
-          this.logger.error(`Failed to create appointment: ${error.message}`);
+          errors.push(`Row ${i + 1}: ${error.message}`);
+          this.logger.error(`❌ Failed at row ${i + 1}: ${error.message}`);
         }
       }
 
-      this.logger.log(`CSV processing completed. Success: ${successCount}, Errors: ${errorCount}`);
+      this.logger.log(`✅ CSV processing completed!`);
+      this.logger.log(`📊 Results - Success: ${successCount}, Errors: ${errorCount}`);
       
       return {
         success: true,
+        jobId: job.id,
+        totalRows: appointments.length,
         processed: successCount,
         failed: errorCount,
         errors: errors.slice(0, 10), // Return first 10 errors
       };
     } catch (error) {
-      this.logger.error(`Failed to process CSV file: ${error.message}`);
+      this.logger.error(`💥 Failed to process CSV file: ${error.message}`);
       throw new Error(`Failed to process CSV file: ${error.message}`);
     }
   }
