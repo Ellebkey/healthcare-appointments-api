@@ -72,7 +72,7 @@ export class AppointmentsService {
       },
     });
 
-    return this.appointmentModel.aggregate(pipeline).exec();
+    return this.appointmentModel.aggregate(pipeline).limit(50).exec();
   }
 
   async findOne(id: number): Promise<any> {

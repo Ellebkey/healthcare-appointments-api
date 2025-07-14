@@ -28,8 +28,10 @@ export class AppointmentsProcessor {
 
     try {
       const appointments = await this.parseCSVFile(filepath);
-      this.logger.log(`📊 Total appointments to process: ${appointments.length}`);
-      
+      this.logger.log(
+        `📊 Total appointments to process: ${appointments.length}`,
+      );
+
       let successCount = 0;
       let errorCount = 0;
       const errors: string[] = [];
@@ -39,11 +41,13 @@ export class AppointmentsProcessor {
         try {
           await this.appointmentsService.create(appointments[i]);
           successCount++;
-          
+
           // Log progress every 10 appointments
           if ((i + 1) % 10 === 0) {
-            await job.progress((i + 1) / appointments.length * 100);
-            this.logger.log(`📈 Progress: ${i + 1}/${appointments.length} (${Math.round((i + 1) / appointments.length * 100)}%)`);
+            await job.progress(((i + 1) / appointments.length) * 100);
+            this.logger.log(
+              `📈 Progress: ${i + 1}/${appointments.length} (${Math.round(((i + 1) / appointments.length) * 100)}%)`,
+            );
           }
         } catch (error) {
           errorCount++;
@@ -53,8 +57,10 @@ export class AppointmentsProcessor {
       }
 
       this.logger.log(`✅ CSV processing completed!`);
-      this.logger.log(`📊 Results - Success: ${successCount}, Errors: ${errorCount}`);
-      
+      this.logger.log(
+        `📊 Results - Success: ${successCount}, Errors: ${errorCount}`,
+      );
+
       return {
         success: true,
         jobId: job.id,
@@ -72,7 +78,7 @@ export class AppointmentsProcessor {
   private parseCSVFile(filepath: string): Promise<CreateAppointmentDto[]> {
     return new Promise((resolve, reject) => {
       const appointments: CreateAppointmentDto[] = [];
-      
+
       if (!fs.existsSync(filepath)) {
         reject(new Error(`File not found: ${filepath}`));
         return;
@@ -100,7 +106,9 @@ export class AppointmentsProcessor {
           }
         })
         .on('end', () => {
-          this.logger.log(`Parsed ${appointments.length} appointments from CSV`);
+          this.logger.log(
+            `Parsed ${appointments.length} appointments from CSV`,
+          );
           resolve(appointments);
         })
         .on('error', (error) => {
